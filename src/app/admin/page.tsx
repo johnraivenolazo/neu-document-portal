@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Upload, Ban, CheckCircle } from 'lucide-react';
@@ -128,7 +128,8 @@ export default function AdminDashboard() {
             </DialogTrigger>
             <DialogContent className="bg-zinc-950 border-zinc-800 text-white">
               <DialogHeader>
-                <DialogTitle>Upload New Document</DialogTitle>
+                <DialogTitle>Upload Document</DialogTitle>
+                <DialogDescription>Upload a new PDF file to the repository.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleUpload} className="space-y-4 mt-4">
                 <div className="space-y-2">
