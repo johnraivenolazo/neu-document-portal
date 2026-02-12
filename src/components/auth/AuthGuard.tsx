@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
     children: React.ReactNode;
-    requiredRole?: 'admin' | 'professor';
+    requiredRole?: 'admin' | 'student';
 }
 
 export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
@@ -38,10 +38,10 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
                 if (cancelled) return;
 
                 if (requiredRole === 'admin' && !admin) {
-                    router.replace('/professor');
+                    router.replace('/student');
                     return;
                 }
-                if (requiredRole === 'professor' && admin) {
+                if (requiredRole === 'student' && admin) {
                     router.replace('/admin');
                     return;
                 }

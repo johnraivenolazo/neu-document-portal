@@ -4,8 +4,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'NEU Laboratory Usage Log',
-  description: 'Automated tracking of laboratory room usage by faculty.',
+  title: 'CICS Document Portal',
+  description: 'Official document repository for CICS students and faculty.',
 };
 
 export default function RootLayout({

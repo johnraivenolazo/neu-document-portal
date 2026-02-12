@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase/provider';
 import { signInWithGoogle } from '@/lib/auth-service';
-import { checkIsAdmin, createOrUpdateProfessorProfile } from '@/lib/firestore-service';
+import { checkIsAdmin, createOrUpdateStudentProfile, getActiveUser } from '@/lib/firestore-service';
 import type { User } from 'firebase/auth';
 
 export default function LoginPage() {
@@ -29,13 +29,22 @@ export default function LoginPage() {
       const admin = await checkIsAdmin(firestore!, fbUser.uid);
       if (admin) {
         router.push('/admin');
+        return;
+      }
+
+      // Student Logic
+      await createOrUpdateStudentProfile(firestore!, fbUser.uid, {
+        email: fbUser.email!,
+        displayName: fbUser.displayName || fbUser.email!,
+        photoURL: fbUser.photoURL || undefined,
+      });
+
+      // Check if profile is complete (has program)
+      const profile = await getActiveUser(firestore!, fbUser.uid);
+      if (profile && !profile.program) {
+        router.push('/student/onboarding'); // Redirect to onboarding
       } else {
-        await createOrUpdateProfessorProfile(firestore!, fbUser.uid, {
-          email: fbUser.email!,
-          displayName: fbUser.displayName || fbUser.email!,
-          photoURL: fbUser.photoURL || undefined,
-        });
-        router.push('/professor');
+        router.push('/student');
       }
     } catch (err) {
       console.error('Post-login routing error:', err);

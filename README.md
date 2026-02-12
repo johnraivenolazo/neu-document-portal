@@ -1,47 +1,29 @@
-# Laboratory Log Management System (NEU)
+# CICS Document Portal
 
-Real-time web application for managing laboratory usage, tracking professor attendance, and securing lab access via QR codes. Built for New Era University.
+An official document repository for **College of Information and Computing Sciences (CICS)** students and faculty at New Era University. This portal allows students to securely access and download college documents, memos, and forms.
 
-![Admin Dashboard](screenshots/admin_dashboard.webp)
-*(Add screenshot of Admin Dashboard here)*
+## 🚀 Key Features
 
-## Features
+### For Students
+*   **Secure Access**: Single Sign-On (SSO) with official `@neu.edu.ph` email.
+*   **Onboarding**: One-time setup to select your undergraduate program (BSCS, BSIT, etc.).
+*   **Document Search**: Quickly find memos, forms, and curriculum guides.
+*   **Downloads**: Securely download PDF documents.
 
-###For Administrators
-*   **Real-time Dashboard**: View active lab sessions, total usage, and room occupancy at a glance.
-*   **User Management**: Approve/Block professors and manage their access.
-*   **Usage Logs**: Comprehensive history of all lab entries and exits, exportable and searchable.
-*   **QR Code Management**: Automatically generate and download unique QR codes for each laboratory room.
-*   **Security**: Role-based access control (RBAC) powered by Firebase Security Rules.
-
-### For Professors
-*   **QR Check-In**: Simply scan the lab's QR code to check in.
-*   **One-Tap Check-Out**: End your session with a single click.
-*   **Session History**: View your past laboratory usage logs.
-*   **Mobile Optimized**: Works perfectly on mobile devices for easy scanning.
+### For Administrators
+*   **Document Management**: Upload, categorize, and manage files.
+*   **User Management**: Monitor student roster and block/unblock accounts.
+*   **Analytics**: Track daily login stats and document download activity.
+*   **Audit Logs**: Detailed history of who downloaded what and when.
 
 ## 🛠 Tech Stack
 
 *   **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
 *   **Language**: TypeScript
+*   **Database**: Firebase Firestore
+*   **Storage**: Firebase Storage
+*   **Auth**: Firebase Authentication (Google Workspace)
 *   **Styling**: Tailwind CSS + [shadcn/ui](https://ui.shadcn.com/)
-*   **Backend**: Firebase (Auth, Firestore)
-*   **Authentication**: Google Workspace (Limited to `@neu.edu.ph`)
-*   **Deployment**: Vercel
-
-## 📸 Screenshots
-
-| Login Page | Professor Check-In |
-|:---:|:---:|
-| ![Login](screenshots/login_page.webp) | ![Check-In](screenshots/professor_checkin_page.webp) |
-| *Secure Login with Domain Restriction* | *Mobile-first QR Scanner* |
-
-| Usage Logs | User Management |
-|:---:|:---:|
-| ![Logs](screenshots/usage_logs_page.webp) | ![Users](screenshots/faculty_management_page.webp) |
-| *Detailed session tracking* | *Manage faculty status* |
-
----
 
 ## ⚙️ Setup & Installation
 
@@ -54,17 +36,15 @@ cd laboratory-log-management
 ### 2. Install Dependencies
 ```bash
 pnpm install
-# or
-npm install
 ```
 
 ### 3. Firebase Configuration
-This project uses Firebase for all backend services.
 1.  Create a Firebase Project.
 2.  Enable **Authentication** (Google Sign-In).
 3.  Enable **Firestore Database**.
-4.  Copy the `firestore.rules` file content to your Firebase Console > Firestore > Rules.
-5.  Update `src/firebase/config.ts` with your Firebase App Config.
+4.  Enable **Storage**.
+5.  Copy `firestore.rules` content to Firebase Console > Firestore > Rules.
+6.  Set up your `.env.local` or update `src/firebase/config.ts`.
 
 ### 4. Run Locally
 ```bash
@@ -72,23 +52,8 @@ pnpm dev
 # Open http://localhost:3000
 ```
 
-## Administrative Access
-
-By default, all new users are **Professors**. To promote a user to **Admin**:
-
-1.  Go to **Firebase Console** -> **Firestore Database**.
-2.  Create a collection named `roles_admin`.
-3.  Add a document where the **Document ID** is the user's **UID**.
-4.  Add a field: `active: true` (boolean).
-
-## 📦 Deployment (Vercel)
-
-1.  Push your code to GitHub.
-2.  Import the project into Vercel.
-3.  Deploy! (No environment variables needed if config is hardcoded, otherwise set them up).
-4.  **IMPORTANT**: Add your Vercel domain (e.g., `neu-laboratory.vercel.app`) to **Firebase Console > Authentication > Settings > Authorized Domains**.
+## 🔐 Admin Access
+To promote a user to **Admin**, create a document in the `roles_admin` collection in Firestore with the user's UID and field `active: true`.
 
 ---
-
-## 📝 License
-Proprietary software for New Era University.
+**Developed for New Era University - CICS**

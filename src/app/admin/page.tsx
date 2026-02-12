@@ -2,67 +2,60 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
-import StatCard from '@/components/admin/StatCard';
-import AIUsageSummary from '@/components/admin/AIUsageSummary';
-import {
-  Users,
-  DoorOpen,
-  Activity,
-  Calendar,
-  Clock,
-  ArrowRight,
-  History,
-  Loader2,
-  QrCode
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import AuthGuard from '@/components/auth/AuthGuard';
 import { useFirebase } from '@/firebase/provider';
-import { getAllLogs, getAllProfessors } from '@/lib/firestore-service';
-
-import type { LabLog, UserProfile } from '@/lib/types';
+import {
+  getAllStudents,
+  updateStudentStatus,
+  searchDocuments,
+  uploadDocument,
+  getDownloadStats
+} from '@/lib/firestore-service';
+import { CICSDocument, UserProfile, DownloadLog } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Upload, Ban, CheckCircle, FileText, Download } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export default function AdminDashboard() {
-  return (
-    <AuthGuard requiredRole="admin">
-      <AdminContent />
-    </AuthGuard>
-  );
-}
+  const { user, firestore, storage } = useFirebase(); // Need storage!
+  const [stats, setStats] = useState({ users: 0, downloads: 0 });
 
-function AdminContent() {
-  const { user, firestore } = useFirebase();
-  const [logs, setLogs] = useState<LabLog[]>([]);
-  const [professors, setProfessors] = useState<UserProfile[]>([]);
+  // State for Tabs
+  const [students, setStudents] = useState<UserProfile[]>([]);
+  const [documents, setDocuments] = useState<CICSDocument[]>([]);
+  const [downloadLogs, setDownloadLogs] = useState<DownloadLog[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Upload State
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [newDoc, setNewDoc] = useState({ title: '', description: '', category: '' });
+  const [file, setFile] = useState<File | null>(null);
+
+  const { toast } = useToast();
 
   useEffect(() => {
     async function load() {
       if (!firestore) return;
-
       try {
-        const [logsData, profsData] = await Promise.all([
-          getAllLogs(firestore),
-          getAllProfessors(firestore),
+        const [stds, docs, dlLogs] = await Promise.all([
+          getAllStudents(firestore),
+          searchDocuments(firestore), // get all
+          getDownloadStats(firestore)
         ]);
-
-        // Fallback to mock data if Firestore is empty (for demo purposes)
-        setLogs(logsData);
-        setProfessors(profsData);
+        setStudents(stds);
+        setDocuments(docs);
+        setDownloadLogs(dlLogs);
+        setStats({ users: stds.length, downloads: dlLogs.length });
       } catch (err) {
-        console.error('Failed to load dashboard data:', err);
+        console.error('Data load error:', err);
       } finally {
         setLoading(false);
       }
@@ -70,145 +63,235 @@ function AdminContent() {
     load();
   }, [firestore]);
 
-  const currentUser = {
-    displayName: user?.displayName || 'Admin',
-    email: user?.email || '',
-    role: 'admin' as const,
-    photoURL: user?.photoURL || undefined,
+  const handleBlock = async (uid: string, currentStatus: string) => {
+    if (!firestore) return;
+    const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
+    try {
+      await updateStudentStatus(firestore, uid, newStatus);
+      setStudents(prev => prev.map(s => s.uid === uid ? { ...s, status: newStatus } : s));
+      toast({ title: `User ${newStatus === 'active' ? 'Unblocked' : 'Blocked'}` });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Action Failed' });
+    }
   };
 
-  // Derived stats
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const totalUsageToday = logs.filter(log => format(log.checkIn, 'yyyy-MM-dd') === today).length;
-  const activeSessions = logs.filter(log => !log.checkOut).length;
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file || !newDoc.title || !newDoc.category || !firestore || !storage || !user) return;
 
-  const roomCounts = logs.reduce((acc, log) => {
-    acc[log.roomNumber] = (acc[log.roomNumber] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  const mostActiveRoom = Object.entries(roomCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
-      </div>
-    );
-  }
+    setUploading(true);
+    try {
+      await uploadDocument(firestore, storage, file, {
+        ...newDoc,
+        uploadedBy: user.uid
+      });
+      toast({ title: 'Document Uploaded' });
+      setUploadOpen(false);
+      setNewDoc({ title: '', description: '', category: '' });
+      setFile(null);
+      // Refresh list
+      const docs = await searchDocuments(firestore);
+      setDocuments(docs);
+    } catch (err) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Upload Failed' });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black">
-      <Navbar user={currentUser} />
+      <Navbar user={{
+        displayName: user?.displayName || 'Admin',
+        email: user?.email || '',
+        role: 'admin',
+        photoURL: user?.photoURL || undefined
+      }} />
 
-      <main className="container mx-auto px-4 py-12 space-y-10">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-bold tracking-tight text-white font-headline">The Nerve Center</h1>
-            <p className="text-zinc-400 text-lg">Overview of laboratory activity and access control.</p>
-          </div>
-          <div className="flex items-center gap-3 bg-zinc-900 px-5 py-3 rounded-2xl border border-zinc-800 shadow-xl">
-            <Calendar className="h-5 w-5 text-zinc-400" />
-            <span className="text-sm font-semibold text-white">{format(new Date(), 'MMMM d, yyyy')}</span>
-          </div>
-        </header>
-
-        {/* Statistic Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Usage Today" value={totalUsageToday} description="Logins recorded today" icon={Activity} />
-          <StatCard title="Currently Active" value={activeSessions} description="Professors in labs now" icon={DoorOpen} />
-          <StatCard title="Most Active Lab" value={`Room ${mostActiveRoom}`} description="Highest traffic room" icon={DoorOpen} />
-          <StatCard title="Total Faculty" value={professors.length} description="Registered accounts" icon={Users} />
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+          <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-white text-black hover:bg-zinc-200 font-bold gap-2">
+                <Upload className="h-4 w-4" /> Upload Document
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-zinc-950 border-zinc-800 text-white">
+              <DialogHeader>
+                <DialogTitle>Upload New Document</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleUpload} className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Title</Label>
+                  <Input
+                    value={newDoc.title}
+                    onChange={e => setNewDoc({ ...newDoc, title: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Input
+                    value={newDoc.description}
+                    onChange={e => setNewDoc({ ...newDoc, description: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select onValueChange={v => setNewDoc({ ...newDoc, category: v })} value={newDoc.category}>
+                    <SelectTrigger className="w-full bg-zinc-900 border-zinc-800">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                      <SelectItem value="Memo">Memo</SelectItem>
+                      <SelectItem value="Form">Form</SelectItem>
+                      <SelectItem value="Curriculum">Curriculum</SelectItem>
+                      <SelectItem value="News">News</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>File (PDF)</Label>
+                  <Input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={e => setFile(e.target.files?.[0] || null)}
+                    className="bg-zinc-900 border-zinc-800 cursor-pointer"
+                    required
+                  />
+                </div>
+                <Button type="submit" disabled={uploading} className="w-full bg-white text-black font-bold">
+                  {uploading ? <Loader2 className="mr-2 animate-spin" /> : 'Upload'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        <div className="grid gap-10 lg:grid-cols-3">
-          {/* Main Activity Table */}
-          <Card className="lg:col-span-2 shadow-2xl border-zinc-800 bg-zinc-950">
-            <CardHeader className="flex flex-row items-center justify-between pb-6 border-b border-zinc-900">
-              <div className="space-y-1">
-                <CardTitle className="text-2xl text-white">Recent Activity</CardTitle>
-                <CardDescription className="text-zinc-500">Live stream of check-ins and check-outs.</CardDescription>
-              </div>
-              <Button asChild variant="outline" size="sm" className="border-zinc-800 hover:bg-zinc-900 text-zinc-300">
-                <Link href="/admin/logs">View All Logs</Link>
-              </Button>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">Total Students</CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent>
+              <div className="text-2xl font-bold text-white">{stats.users}</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">Total Downloads</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">{stats.downloads}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="documents" className="w-full">
+          <TabsList className="bg-zinc-900 text-zinc-400 border border-zinc-800">
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
+            <TabsTrigger value="logs">Download Logs</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="documents" className="mt-4 space-y-4">
+            <Card className="bg-zinc-950 border-zinc-800">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-zinc-900 hover:bg-transparent">
-                    <TableHead className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Professor</TableHead>
-                    <TableHead className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Room</TableHead>
-                    <TableHead className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Time In</TableHead>
-                    <TableHead className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Duration</TableHead>
-                    <TableHead className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Status</TableHead>
+                  <TableRow className="border-zinc-800 hover:bg-zinc-900/50">
+                    <TableHead className="text-zinc-400">Title</TableHead>
+                    <TableHead className="text-zinc-400">Category</TableHead>
+                    <TableHead className="text-zinc-400">Downloads</TableHead>
+                    <TableHead className="text-zinc-400">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.length > 0 ? (
-                    logs.slice(0, 5).map((log) => (
-                      <TableRow key={log.id} className="border-zinc-900 hover:bg-zinc-900/40 transition-colors">
-                        <TableCell className="font-semibold text-zinc-100">{log.professorName}</TableCell>
-                        <TableCell className="text-zinc-300">Room {log.roomNumber}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                            <Clock className="h-3 w-3" />
-                            {format(log.checkIn, 'hh:mm a')}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-zinc-300">{log.duration ? `${log.duration} min` : '--'}</TableCell>
-                        <TableCell>
-                          <Badge variant={log.checkOut ? "secondary" : "default"} className={!log.checkOut ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-zinc-800 text-zinc-400 border-zinc-700"}>
-                            {log.checkOut ? "Completed" : "Active"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-zinc-600">
-                        No usage logs recorded yet.
+                  {documents.map((doc) => (
+                    <TableRow key={doc.id} className="border-zinc-800 hover:bg-zinc-900/50">
+                      <TableCell className="font-medium text-white">{doc.title}</TableCell>
+                      <TableCell className="text-zinc-400">{doc.category}</TableCell>
+                      <TableCell className="text-zinc-400">{doc.downloadCount}</TableCell>
+                      <TableCell className="text-zinc-400">
+                        {doc.createdAt && format(new Date(doc.createdAt), 'MMM d, yyyy')}
                       </TableCell>
                     </TableRow>
-                  )}
+                  ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-
-          {/* AI Insights and Sidebar */}
-          <div className="space-y-8">
-            <AIUsageSummary logs={logs} />
-
-            <Card className="shadow-2xl border-zinc-800 bg-zinc-950">
-              <CardHeader>
-                <CardTitle className="text-xl text-white">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                <Button variant="outline" className="justify-start gap-3 h-14 bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-200" asChild>
-                  <Link href="/admin/users">
-                    <Users className="h-5 w-5 text-zinc-400" />
-                    Manage Faculty Access
-                    <ArrowRight className="ml-auto h-4 w-4 opacity-30" />
-                  </Link>
-                </Button>
-                <Button variant="outline" className="justify-start gap-3 h-14 bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-200" asChild>
-                  <Link href="/admin/logs">
-                    <History className="h-5 w-5 text-zinc-400" />
-                    Export Usage Reports
-                    <ArrowRight className="ml-auto h-4 w-4 opacity-30" />
-                  </Link>
-                </Button>
-                <Button variant="outline" className="justify-start gap-3 h-14 bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-200" asChild>
-                  <Link href="/admin/qr">
-                    <QrCode className="h-5 w-5 text-zinc-400" />
-                    Download QR Codes
-                    <ArrowRight className="ml-auto h-4 w-4 opacity-30" />
-                  </Link>
-                </Button>
-              </CardContent>
             </Card>
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="students" className="mt-4">
+            <Card className="bg-zinc-950 border-zinc-800">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-zinc-800 hover:bg-zinc-900/50">
+                    <TableHead className="text-zinc-400">Name</TableHead>
+                    <TableHead className="text-zinc-400">Email</TableHead>
+                    <TableHead className="text-zinc-400">Program</TableHead>
+                    <TableHead className="text-zinc-400">Status</TableHead>
+                    <TableHead className="text-zinc-400">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {students.map((student) => (
+                    <TableRow key={student.uid} className="border-zinc-800 hover:bg-zinc-900/50">
+                      <TableCell className="font-medium text-white">{student.displayName}</TableCell>
+                      <TableCell className="text-zinc-400">{student.email}</TableCell>
+                      <TableCell className="text-zinc-400">{student.program || 'N/A'}</TableCell>
+                      <TableCell className="text-zinc-400">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'blocked' ? 'bg-red-900/50 text-red-400' : 'bg-green-900/50 text-green-400'}`}>
+                          {student.status.toUpperCase()}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleBlock(student.uid, student.status)}
+                          className={student.status === 'blocked' ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'}
+                        >
+                          {student.status === 'blocked' ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="logs" className="mt-4">
+            <Card className="bg-zinc-950 border-zinc-800">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-zinc-800 hover:bg-zinc-900/50">
+                    <TableHead className="text-zinc-400">Document</TableHead>
+                    <TableHead className="text-zinc-400">Student</TableHead>
+                    <TableHead className="text-zinc-400">Program</TableHead>
+                    <TableHead className="text-zinc-400">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {downloadLogs.map((log) => (
+                    <TableRow key={log.id} className="border-zinc-800 hover:bg-zinc-900/50">
+                      <TableCell className="font-medium text-white">{log.documentTitle}</TableCell>
+                      <TableCell className="text-zinc-400">{log.studentName}</TableCell>
+                      <TableCell className="text-zinc-400">{log.studentProgram}</TableCell>
+                      <TableCell className="text-zinc-400">
+                        {log.timestamp && format(new Date(log.timestamp), 'MMM d, HH:mm')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

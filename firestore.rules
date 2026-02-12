@@ -7,64 +7,62 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function isAdmin() {
+      // Check roles_admin collection for admin status
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+    
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
     
-    // Checks if the user's UID exists in the 'roles_admin' collection
-    function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    function isActiveStudent() {
+      // Check if user is signed in AND not blocked in their profile
+      // Note: We assume non-admins are students by default, but we should verify status.
+      // This requires reading the user document, which costs 1 read.
+      // For simplicity/performance, we might skip the status check on every read if not critical, 
+      // but requirement says 'block student account', so we MUST enforce it.
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isSignedIn() && (userDoc == null || userDoc.data.status != 'blocked');
     }
 
     // --- Collection Rules ---
 
-    // 1. Professors: Can read/write their own profile. Admins can manage all.
-    match /professors/{professorId} {
-      allow get: if isOwner(professorId) || isAdmin();
+    // 1. Users (Students/Admins)
+    // Students can read/write their own profile (for onboarding). Admins manage all.
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(professorId) && request.resource.data.id == professorId;
-      allow update: if isExistingOwner(professorId) || isAdmin();
+      allow create: if isOwner(userId); // Initial sign-up
+      allow update: if isOwner(userId) || isAdmin(); // Onboarding details or Admin blocking
       allow delete: if isAdmin();
     }
 
-    // 2. Lab Rooms: Publicly readable so everyone can see room names. Admin-only edits.
-    match /lab_rooms/{roomId} {
-      allow get, list: if isSignedIn();
+    // 2. Documents (The PDFs)
+    // Readable by active students. Writable by Admins only.
+    match /documents/{docId} {
+      allow get, list: if isAdmin() || isActiveStudent();
       allow create, update, delete: if isAdmin();
     }
-
-    // 3. Usage Logs: Professors can create their own logs. Admins can view/manage all.
-    match /usage_logs/{usageLogId} {
-      // Allow reading if you are an admin OR if you are the professor who owns the log
-      allow get: if isAdmin() || (isSignedIn() && resource.data.professorId == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && resource.data.professorId == request.auth.uid);
-      
-      // Allow creation only for yourself
-      allow create: if isSignedIn() && request.resource.data.professorId == request.auth.uid;
-      
-      // Allow updates (e.g., check-out) if you own the log or are an admin
-      allow update: if isAdmin() || (resource != null && resource.data.professorId == request.auth.uid);
-      
-      allow delete: if isAdmin();
-    }
     
-    // 4. Admin Profiles
-    match /admins/{adminId} {
-      allow get: if isOwner(adminId) || isAdmin();
-      allow list: if isAdmin();
-      allow create, update: if isOwner(adminId) || isAdmin();
-      allow delete: if isAdmin();
+    // 3. Download Logs (Tracking)
+    // Students create logs when downloading. Admins read stats.
+    match /downloads/{logId} {
+      allow create: if isActiveStudent();
+      allow read, list: if isAdmin();
     }
 
-    // 5. Admin Roles: The source of truth for admin permissions.
+    // 4. Login Logs (Tracking)
+    // Created on login.
+    match /login_logs/{logId} {
+      allow create: if isSignedIn();
+      allow read, list: if isAdmin();
+    }
+
+    // 5. Admin Roles (Same as before)
     match /roles_admin/{userId} {
-      allow get: if isSignedIn();  // Anyone can check if a role exists (needed for isAdmin check)
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin(); // Only existing admins can add new admins
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }

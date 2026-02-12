@@ -2,145 +2,197 @@ import {
     Firestore,
     collection,
     doc,
-    addDoc,
+    getDoc,
+    setDoc,
     updateDoc,
     getDocs,
-    getDoc,
     query,
     where,
-    orderBy,
     Timestamp,
+    runTransaction,
+    addDoc,
     serverTimestamp,
-    setDoc,
+    orderBy,
+    limit
 } from 'firebase/firestore';
-import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { UserProfile, LabLog } from './types';
+import {
+    FirebaseStorage,
+    ref,
+    uploadBytes,
+    getDownloadURL
+} from 'firebase/storage';
+import {
+    CICSDocument,
+    UserProfile,
+    UserStatus,
+    DownloadLog
+} from '@/lib/types';
 
-// ===================== HELPERS =====================
+// --- User Management ---
 
-function toDate(ts: unknown): Date {
-    if (ts instanceof Timestamp) return ts.toDate();
-    if (ts instanceof Date) return ts;
-    return new Date();
-}
-
-function logFromDoc(docSnap: QueryDocumentSnapshot<DocumentData>): LabLog {
-    const d = docSnap.data();
-    return {
-        id: docSnap.id,
-        professorId: d.professorId,
-        professorName: d.professorName,
-        roomNumber: d.roomNumber,
-        checkIn: toDate(d.checkIn),
-        checkOut: d.checkOut ? toDate(d.checkOut) : undefined,
-        duration: d.duration ?? undefined,
-    };
-}
-
-// ===================== AUTH / ROLES =====================
-
-export async function checkIsAdmin(firestore: Firestore, uid: string): Promise<boolean> {
-    const snap = await getDoc(doc(firestore, 'roles_admin', uid));
-    return snap.exists();
-}
-
-// ===================== USER OPERATIONS =====================
-
-export async function getUserProfile(firestore: Firestore, uid: string): Promise<UserProfile | null> {
-    const profSnap = await getDoc(doc(firestore, 'professors', uid));
-    if (profSnap.exists()) return { uid: profSnap.id, ...profSnap.data() } as UserProfile;
-
-    const adminSnap = await getDoc(doc(firestore, 'admins', uid));
-    if (adminSnap.exists()) return { uid: adminSnap.id, ...adminSnap.data() } as UserProfile;
-
+export async function getActiveUser(firestore: Firestore, uid: string): Promise<UserProfile | null> {
+    const docRef = doc(firestore, 'users', uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+        return snap.data() as UserProfile;
+    }
     return null;
 }
 
-export async function createOrUpdateProfessorProfile(
+export async function createOrUpdateStudentProfile(
     firestore: Firestore,
     uid: string,
-    data: { email: string; displayName: string; photoURL?: string },
+    data: Partial<UserProfile>
 ): Promise<void> {
-    await setDoc(
-        doc(firestore, 'professors', uid),
-        {
-            id: uid,
-            email: data.email,
-            displayName: data.displayName,
-            role: 'professor',
-            photoURL: data.photoURL || '',
+    const docRef = doc(firestore, 'users', uid);
+    // Merge: true is safer. If doc exists, it updates. If not, it creates.
+    // We assume role 'student' by default unless role is already set.
+    // We don't overwrite role if it exists.
+
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+        // New user
+        await setDoc(docRef, {
+            uid,
+            role: 'student',
             status: 'active',
-        },
-        { merge: true },
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
+            ...data
+        });
+    } else {
+        // Existing user
+        await updateDoc(docRef, {
+            lastLogin: serverTimestamp(),
+            ...data
+        });
+    }
+}
+
+export async function checkIsAdmin(firestore: Firestore, uid: string): Promise<boolean> {
+    // Check active admin role
+    const docRef = doc(firestore, 'roles_admin', uid);
+    const snap = await getDoc(docRef);
+    return snap.exists() && snap.data().active === true;
+}
+
+export async function updateStudentStatus(firestore: Firestore, uid: string, status: UserStatus): Promise<void> {
+    const docRef = doc(firestore, 'users', uid);
+    await updateDoc(docRef, { status });
+}
+
+export async function getAllStudents(firestore: Firestore): Promise<UserProfile[]> {
+    const q = query(collection(firestore, 'users'), where('role', '==', 'student'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => {
+        const data = d.data();
+        return {
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate(),
+            lastLogin: (data.lastLogin as Timestamp)?.toDate()
+        } as UserProfile;
+    });
+}
+
+// --- Document Management ---
+
+export async function uploadDocument(
+    firestore: Firestore,
+    storage: FirebaseStorage,
+    file: File,
+    meta: { title: string, description: string, category: string, uploadedBy: string }
+): Promise<void> {
+    // 1. Upload file to Storage
+    const storageRef = ref(storage, `documents/${Date.now()}_${file.name}`);
+    const uploadResult = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(uploadResult.ref);
+
+    // 2. Create Document record in Firestore
+    const docData: Omit<CICSDocument, 'id'> = {
+        title: meta.title,
+        description: meta.description,
+        category: meta.category,
+        fileUrl: downloadURL, // Store URL
+        fileType: file.type,
+        uploadedBy: meta.uploadedBy,
+        createdAt: new Date(), // Client date usage, serverTimestamp better but types conflict
+        downloadCount: 0
+    };
+
+    await addDoc(collection(firestore, 'documents'), {
+        ...docData,
+        createdAt: serverTimestamp() // Override with server time
+    });
+}
+
+export async function searchDocuments(firestore: Firestore, searchQuery: string = ''): Promise<CICSDocument[]> {
+    // Simple search (fetch all and filter client-side for now, unless large scale)
+    // Firestore lacks string 'contains' query
+    const colRef = collection(firestore, 'documents');
+    // If we wanted to search by exact category or sort by date
+    const q = query(colRef, orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    const docs = snap.docs.map(d => {
+        const data = d.data();
+        return {
+            id: d.id,
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate()
+        } as CICSDocument;
+    });
+
+    if (!searchQuery) return docs;
+
+    // Client-side filter
+    const lowerQ = searchQuery.toLowerCase();
+    return docs.filter(d =>
+        d.title.toLowerCase().includes(lowerQ) ||
+        d.description.toLowerCase().includes(lowerQ) ||
+        d.category.toLowerCase().includes(lowerQ)
     );
 }
 
-export async function getAllProfessors(firestore: Firestore): Promise<UserProfile[]> {
-    const snap = await getDocs(collection(firestore, 'professors'));
-    return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile));
-}
+// --- Logs & Analytics ---
 
-export async function updateUserStatus(
+export async function logDownload(
     firestore: Firestore,
-    uid: string,
-    status: 'active' | 'blocked',
+    docId: string,
+    student: UserProfile,
+    docTitle: string
 ): Promise<void> {
-    await updateDoc(doc(firestore, 'professors', uid), { status });
-}
+    // Transaction: Increment counter on Document, Create Log Record
+    await runTransaction(firestore, async (transaction) => {
+        const docRef = doc(firestore, 'documents', docId);
+        const logRef = doc(collection(firestore, 'downloads'));
 
-export async function checkProfessorBlocked(firestore: Firestore, uid: string): Promise<boolean> {
-    const snap = await getDoc(doc(firestore, 'professors', uid));
-    if (!snap.exists()) return false;
-    return snap.data().status === 'blocked';
-}
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) throw new Error("Document does not exist!");
 
-// ===================== LOG OPERATIONS =====================
+        const newCount = (docSnap.data().downloadCount || 0) + 1;
 
-export async function createUsageLog(
-    firestore: Firestore,
-    data: { professorId: string; professorName: string; roomNumber: string },
-): Promise<string> {
-    const ref = await addDoc(collection(firestore, 'usage_logs'), {
-        professorId: data.professorId,
-        professorName: data.professorName,
-        roomNumber: data.roomNumber,
-        checkIn: serverTimestamp(),
-        checkOut: null,
-        duration: null,
+        transaction.update(docRef, { downloadCount: newCount });
+        transaction.set(logRef, {
+            documentId: docId,
+            documentTitle: docTitle,
+            studentId: student.uid,
+            studentName: student.displayName,
+            studentProgram: student.program || 'Unknown',
+            timestamp: serverTimestamp()
+        });
     });
-    return ref.id;
 }
 
-export async function checkOutLog(firestore: Firestore, logId: string): Promise<void> {
-    const ref = doc(firestore, 'usage_logs', logId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) throw new Error('Log not found');
-
-    const checkIn = toDate(snap.data().checkIn);
-    const now = new Date();
-    const duration = Math.round((now.getTime() - checkIn.getTime()) / 60000);
-
-    await updateDoc(ref, { checkOut: Timestamp.fromDate(now), duration });
-}
-
-export async function getActiveSession(firestore: Firestore, professorId: string): Promise<LabLog | null> {
-    const q = query(collection(firestore, 'usage_logs'), where('professorId', '==', professorId));
+export async function getDownloadStats(firestore: Firestore): Promise<DownloadLog[]> {
+    const q = query(collection(firestore, 'downloads'), orderBy('timestamp', 'desc'), limit(100));
     const snap = await getDocs(q);
-    const active = snap.docs.find((d) => {
+
+    // Need to convert Timestamp to Date for frontend usage
+    return snap.docs.map(d => {
         const data = d.data();
-        return data.checkOut === null || data.checkOut === undefined;
+        return {
+            id: d.id,
+            ...data,
+            timestamp: (data.timestamp as Timestamp)?.toDate()
+        } as DownloadLog;
     });
-    return active ? logFromDoc(active) : null;
-}
-
-export async function getAllLogs(firestore: Firestore): Promise<LabLog[]> {
-    const q = query(collection(firestore, 'usage_logs'), orderBy('checkIn', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(logFromDoc);
-}
-
-export async function getLogsByProfessor(firestore: Firestore, professorId: string): Promise<LabLog[]> {
-    const q = query(collection(firestore, 'usage_logs'), where('professorId', '==', professorId));
-    const snap = await getDocs(q);
-    return snap.docs.map(logFromDoc).sort((a, b) => b.checkIn.getTime() - a.checkIn.getTime());
 }
