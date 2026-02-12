@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 import { handleUpload, HandleUploadBody } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 
@@ -10,24 +9,22 @@ export async function POST(request: Request): Promise<NextResponse> {
             body,
             request,
             onBeforeGenerateToken: async (_pathname) => {
-                // Authenticated? We check this client-side via Firebase user.
-                // For strict security, you would pass a token here.
-                // For now, we allow uploads if they match our content type.
+                // Simple security check: Siguraduhin na PDF lang ang uploaded
                 return {
                     allowedContentTypes: ['application/pdf'],
                     tokenPayload: JSON.stringify({
-                        // optional payload
+                        // optional: pwede kang magdagdag ng user ID dito
                     }),
                 };
             },
             onUploadCompleted: async ({ blob: _blob, tokenPayload: _tokenPayload }) => {
-                // Log upload?
-                // console.log('blob uploaded', _blob.url);
+                // Dito pwede kang mag-log pagkatapos ng upload
             },
         });
 
         return NextResponse.json(jsonResponse);
     } catch (error) {
+        console.error('Vercel Blob Upload Error:', error);
         return NextResponse.json(
             { error: (error as Error).message },
             { status: 400 },
