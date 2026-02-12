@@ -42,6 +42,7 @@ export function useDoc<T = Record<string, unknown>>(
       return;
     }
 
+    // eslint-disable-next-line
     setIsLoading(true);
     setError(null);
 

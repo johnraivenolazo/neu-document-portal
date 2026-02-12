@@ -7,10 +7,10 @@ import { searchDocuments, logDownload } from '@/lib/firestore-service';
 import { CICSDocument, UserProfile } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Search, Download, FileText, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+
 
 export default function StudentDashboard() {
     const { user, firestore } = useFirebase();
@@ -134,7 +134,7 @@ export default function StudentDashboard() {
 
                         {documents.length === 0 && !loading && (
                             <div className="col-span-full text-center py-12 text-zinc-500">
-                                No documents found matching "{query}".
+                                No documents found matching &quot;{query}&quot;.
                             </div>
                         )}
                     </div>

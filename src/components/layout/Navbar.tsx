@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { LogOut, LayoutDashboard, History, UserCheck } from 'lucide-react';
+import { LogOut, LayoutDashboard, History } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,40 +50,39 @@ export default function Navbar({ user }: NavbarProps) {
             <NavLink href="/student" active={pathname === '/student'} icon={<History className="h-4 w-4" />}>Documents</NavLink>
           )}
         </div>
-      </div>
 
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:block text-right">
-          <p className="text-sm font-medium text-zinc-100">{user.displayName}</p>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">{user.role}</p>
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:block text-right">
+            <p className="text-sm font-medium text-zinc-100">{user.displayName}</p>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">{user.role}</p>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-offset-background transition-colors hover:ring-2 hover:ring-zinc-800">
+                <Avatar className="h-10 w-10 border border-zinc-800">
+                  <AvatarImage src={user.photoURL} alt={user.displayName} />
+                  <AvatarFallback className="bg-zinc-900 text-zinc-400">{user.displayName.charAt(0)}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 bg-zinc-950 border-zinc-900 text-zinc-100" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{user.displayName}</p>
+                  <p className="text-xs leading-none text-zinc-500">{user.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-zinc-900" />
+              <DropdownMenuItem onClick={handleLogout} className="text-rose-500 focus:text-rose-400 focus:bg-rose-500/10 cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-offset-background transition-colors hover:ring-2 hover:ring-zinc-800">
-              <Avatar className="h-10 w-10 border border-zinc-800">
-                <AvatarImage src={user.photoURL} alt={user.displayName} />
-                <AvatarFallback className="bg-zinc-900 text-zinc-400">{user.displayName.charAt(0)}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-zinc-950 border-zinc-900 text-zinc-100" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user.displayName}</p>
-                <p className="text-xs leading-none text-zinc-500">{user.email}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-zinc-900" />
-            <DropdownMenuItem onClick={handleLogout} className="text-rose-500 focus:text-rose-400 focus:bg-rose-500/10 cursor-pointer">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Sign out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
-    </div>
-    </nav >
+    </nav>
   );
 }
 

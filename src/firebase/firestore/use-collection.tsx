@@ -53,6 +53,7 @@ export function useCollection<T = Record<string, unknown>>(
       return;
     }
 
+    // eslint-disable-next-line
     setIsLoading(true);
     setError(null);
 

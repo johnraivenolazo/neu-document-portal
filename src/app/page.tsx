@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, Loader2 } from 'lucide-react';
@@ -17,14 +17,9 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { auth, firestore, user, isUserLoading } = useFirebase();
 
-  // Auto-redirect if already signed in
-  useEffect(() => {
-    if (!isUserLoading && user && firestore) {
-      routeAfterLogin(user);
-    }
-  }, [user, isUserLoading]);
 
-  const routeAfterLogin = async (fbUser: User) => {
+
+  const routeAfterLogin = useCallback(async (fbUser: User) => {
     try {
       const admin = await checkIsAdmin(firestore!, fbUser.uid);
       if (admin) {
@@ -49,18 +44,25 @@ export default function LoginPage() {
     } catch (err) {
       console.error('Post-login routing error:', err);
     }
-  };
+  }, [firestore, router]);
+
+  // Auto-redirect if already signed in
+  useEffect(() => {
+    if (!isUserLoading && user && firestore) {
+      routeAfterLogin(user);
+    }
+  }, [user, isUserLoading, firestore, routeAfterLogin]);
 
   const handleGoogleLogin = async (hint?: string) => {
     setLoading(true);
     try {
       const fbUser = await signInWithGoogle(auth!, hint);
       await routeAfterLogin(fbUser);
-    } catch (err: any) {
+    } catch (err) {
       toast({
         variant: 'destructive',
         title: 'Access Denied',
-        description: err.message || 'Authentication failed. Please use your @neu.edu.ph account.',
+        description: (err as Error).message || 'Authentication failed. Please use your @neu.edu.ph account.',
       });
     } finally {
       setLoading(false);
