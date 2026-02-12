@@ -30,7 +30,7 @@ import Link from 'next/link';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { useFirebase } from '@/firebase/provider';
 import { getAllLogs, getAllProfessors } from '@/lib/firestore-service';
-import { mockLogs, mockUsers } from '@/lib/mock-data';
+
 import type { LabLog, UserProfile } from '@/lib/types';
 
 export default function AdminDashboard() {
@@ -49,13 +49,7 @@ function AdminContent() {
 
   useEffect(() => {
     async function load() {
-      // If firestore is not available or if we want to force mock data for viewing
-      if (!firestore) {
-        setLogs(mockLogs);
-        setProfessors(mockUsers);
-        setLoading(false);
-        return;
-      }
+      if (!firestore) return;
 
       try {
         const [logsData, profsData] = await Promise.all([
@@ -64,12 +58,10 @@ function AdminContent() {
         ]);
 
         // Fallback to mock data if Firestore is empty (for demo purposes)
-        setLogs(logsData.length > 0 ? logsData : mockLogs);
-        setProfessors(profsData.length > 0 ? profsData : mockUsers);
+        setLogs(logsData);
+        setProfessors(profsData);
       } catch (err) {
-        console.error('Failed to load dashboard data, falling back to mock:', err);
-        setLogs(mockLogs);
-        setProfessors(mockUsers);
+        console.error('Failed to load dashboard data:', err);
       } finally {
         setLoading(false);
       }

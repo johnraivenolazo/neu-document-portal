@@ -13,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { useFirebase } from '@/firebase/provider';
 import { getAllProfessors, updateUserStatus } from '@/lib/firestore-service';
-import { mockUsers } from '@/lib/mock-data';
 import type { UserProfile } from '@/lib/types';
 
 export default function UserManagementPage() {
@@ -34,17 +33,12 @@ function UsersContent() {
 
   useEffect(() => {
     async function load() {
-      if (!firestore) {
-        setUsers(mockUsers);
-        setLoading(false);
-        return;
-      }
+      if (!firestore) return;
       try {
         const data = await getAllProfessors(firestore);
-        setUsers(data.length > 0 ? data : mockUsers);
+        setUsers(data);
       } catch (err) {
-        console.error('Failed to load users, using mock:', err);
-        setUsers(mockUsers);
+        console.error('Failed to load users:', err);
       } finally {
         setLoading(false);
       }
