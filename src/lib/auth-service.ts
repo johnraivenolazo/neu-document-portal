@@ -19,7 +19,7 @@ export async function signInWithGoogle(auth: Auth, loginHint?: string): Promise<
     const user = result.user;
 
     // Defense-in-depth: verify domain even after Google restricts it
-    if (!user.email?.endsWith('@neu.edu.ph')) {
+    if (!user.email?.toLowerCase().endsWith('@neu.edu.ph')) {
         await signOut(auth);
         throw new Error('Only @neu.edu.ph institutional emails are allowed.');
     }

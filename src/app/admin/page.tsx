@@ -175,9 +175,9 @@ export default function AdminDashboard() {
       }} />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <TooltipProvider>
+        <TooltipProvider delayDuration={0}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
+          <div>
               <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
               <p className="text-zinc-500 text-sm mt-1">Manage documents, students, and view analytics.</p>
             </div>
