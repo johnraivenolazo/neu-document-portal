@@ -57,10 +57,23 @@ export async function createOrUpdateStudentProfile(
         });
     } else {
         // Existing user
-        await updateDoc(docRef, {
+        const updatePayload: Record<string, unknown> = {
             lastLogin: serverTimestamp(),
-            ...data
-        });
+        };
+
+        if (typeof data.displayName === 'string') {
+            updatePayload.displayName = data.displayName;
+        }
+
+        if (typeof data.photoURL === 'string') {
+            updatePayload.photoURL = data.photoURL;
+        }
+
+        if (typeof data.program === 'string') {
+            updatePayload.program = data.program;
+        }
+
+        await updateDoc(docRef, updatePayload);
     }
 }
 

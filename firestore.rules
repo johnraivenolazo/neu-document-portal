@@ -51,16 +51,23 @@ service cloud.firestore {
       ]);
     }
 
-    function allowedUserKeysOnOwnerUpdate() {
-      return request.resource.data.keys().hasOnly([
-        'uid',
-        'email',
+    function ownerAllowedUserUpdateChanges() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'displayName',
         'photoURL',
-        'role',
-        'status',
         'program',
-        'createdAt',
+        'lastLogin',
+        'role'
+      ]);
+    }
+
+    function adminAllowedUserUpdateChanges() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'status',
+        'role',
+        'displayName',
+        'photoURL',
+        'program',
         'lastLogin'
       ]);
     }
@@ -102,7 +109,8 @@ service cloud.firestore {
       return request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
         && request.resource.data.role in ['student', 'admin']
-        && request.resource.data.status in ['active', 'blocked'];
+        && request.resource.data.status in ['active', 'blocked']
+        && adminAllowedUserUpdateChanges();
     }
 
     function validDocumentWrite() {
@@ -128,6 +136,13 @@ service cloud.firestore {
       && request.resource.data.uploadedBy == request.auth.uid
       && request.resource.data.downloadCount is int
       && request.resource.data.downloadCount >= 0;
+    }
+
+    function validStudentDownloadIncrement() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloadCount'])
+        && request.resource.data.downloadCount is int
+        && resource.data.downloadCount is int
+        && request.resource.data.downloadCount == resource.data.downloadCount + 1;
     }
 
     function validDownloadCreate() {
@@ -166,7 +181,7 @@ service cloud.firestore {
         && validUserCreate(userId);
       allow update: if (
         isOwner(userId)
-        && allowedUserKeysOnOwnerUpdate()
+        && ownerAllowedUserUpdateChanges()
         && (validOwnerProfileUpdate(userId) || validPrimaryAdminRoleToggle(userId))
       ) || (
         isAdmin()
@@ -177,7 +192,8 @@ service cloud.firestore {
 
     match /documents/{docId} {
       allow get, list: if isAdmin() || isActiveStudent();
-      allow create, update: if isAdmin() && validDocumentWrite();
+      allow create: if isAdmin() && validDocumentWrite();
+      allow update: if (isAdmin() && validDocumentWrite()) || (isActiveStudent() && validStudentDownloadIncrement());
       allow delete: if isAdmin();
     }
 
