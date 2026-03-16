@@ -1,68 +1,200 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isAdmin() {
-      // Check roles_admin collection for admin status
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-    }
-    
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    function isActiveStudent() {
-      // Check if user is signed in AND not blocked in their profile
-      // Note: We assume non-admins are students by default, but we should verify status.
-      // This requires reading the user document, which costs 1 read.
-      // For simplicity/performance, we might skip the status check on every read if not critical, 
-      // but requirement says 'block student account', so we MUST enforce it.
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return isSignedIn() && (userDoc == null || userDoc.data.status != 'blocked');
+
+    function authEmail() {
+      return request.auth.token.email;
     }
 
-    // --- Collection Rules ---
+    function isNeuEmail() {
+      return isSignedIn() && authEmail() is string && authEmail().matches('.*@neu\\.edu\\.ph$');
+    }
 
-    // 1. Users (Students/Admins)
-    // Students can read/write their own profile (for onboarding). Admins manage all.
+    function userDocRef(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function currentUserDocExists() {
+      return isSignedIn() && exists(userDocRef(request.auth.uid));
+    }
+
+    function currentUserData() {
+      return get(userDocRef(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return currentUserDocExists() && currentUserData().role == 'admin' && currentUserData().status == 'active';
+    }
+
+    function isActiveStudent() {
+      return currentUserDocExists() && currentUserData().role == 'student' && currentUserData().status == 'active';
+    }
+
+    function allowedUserKeysOnCreate() {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'email',
+        'displayName',
+        'photoURL',
+        'role',
+        'status',
+        'program',
+        'createdAt',
+        'lastLogin'
+      ]);
+    }
+
+    function allowedUserKeysOnOwnerUpdate() {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'email',
+        'displayName',
+        'photoURL',
+        'role',
+        'status',
+        'program',
+        'createdAt',
+        'lastLogin'
+      ]);
+    }
+
+    function validUserCreate(userId) {
+      return request.resource.data.uid == userId
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('.*@neu\\.edu\\.ph$')
+        && request.resource.data.role in ['student', 'admin']
+        && request.resource.data.status in ['active', 'blocked']
+        && (
+          (request.resource.data.role == 'admin' && request.resource.data.email == 'jcesperanza@neu.edu.ph')
+          || request.resource.data.role == 'student'
+        );
+    }
+
+    function validOwnerProfileUpdate(userId) {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.uid == userId;
+    }
+
+    function validPrimaryAdminRoleToggle(userId) {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.uid == userId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.email == 'jcesperanza@neu.edu.ph'
+        && authEmail() == 'jcesperanza@neu.edu.ph'
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.createdAt == resource.data.createdAt
+        && resource.data.role in ['admin', 'student']
+        && request.resource.data.role in ['admin', 'student'];
+    }
+
+    function validAdminUserUpdate() {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role in ['student', 'admin']
+        && request.resource.data.status in ['active', 'blocked'];
+    }
+
+    function validDocumentWrite() {
+      return request.resource.data.keys().hasOnly([
+        'title',
+        'description',
+        'category',
+        'fileUrl',
+        'downloadUrl',
+        'fileType',
+        'extension',
+        'uploadedBy',
+        'createdAt',
+        'downloadCount'
+      ])
+      && request.resource.data.title is string
+      && request.resource.data.description is string
+      && request.resource.data.category is string
+      && request.resource.data.fileUrl is string
+      && request.resource.data.downloadUrl is string
+      && request.resource.data.fileType is string
+      && request.resource.data.extension is string
+      && request.resource.data.uploadedBy == request.auth.uid
+      && request.resource.data.downloadCount is int
+      && request.resource.data.downloadCount >= 0;
+    }
+
+    function validDownloadCreate() {
+      return request.resource.data.keys().hasOnly([
+        'documentId',
+        'documentTitle',
+        'studentId',
+        'studentName',
+        'studentProgram',
+        'timestamp'
+      ])
+      && request.resource.data.documentId is string
+      && request.resource.data.documentTitle is string
+      && request.resource.data.studentId == request.auth.uid
+      && request.resource.data.studentName is string;
+    }
+
+    function validLoginLogCreate() {
+      return request.resource.data.keys().hasOnly([
+        'userId',
+        'userName',
+        'role',
+        'timestamp'
+      ])
+      && request.resource.data.userId == request.auth.uid
+      && request.resource.data.userName is string
+      && request.resource.data.role in ['student', 'admin'];
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId); // Initial sign-up
-      allow update: if isOwner(userId) || isAdmin(); // Onboarding details or Admin blocking
+      allow create: if isOwner(userId)
+        && isNeuEmail()
+        && allowedUserKeysOnCreate()
+        && validUserCreate(userId);
+      allow update: if (
+        isOwner(userId)
+        && allowedUserKeysOnOwnerUpdate()
+        && (validOwnerProfileUpdate(userId) || validPrimaryAdminRoleToggle(userId))
+      ) || (
+        isAdmin()
+        && validAdminUserUpdate()
+      );
       allow delete: if isAdmin();
     }
 
-    // 2. Documents (The PDFs)
-    // Readable by active students. Writable by Admins only.
     match /documents/{docId} {
       allow get, list: if isAdmin() || isActiveStudent();
-      allow create, update, delete: if isAdmin();
+      allow create, update: if isAdmin() && validDocumentWrite();
+      allow delete: if isAdmin();
     }
-    
-    // 3. Download Logs (Tracking)
-    // Students create logs when downloading. Admins read stats.
+
     match /downloads/{logId} {
-      allow create: if isActiveStudent();
+      allow create: if isActiveStudent() && validDownloadCreate();
       allow read, list: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // 4. Login Logs (Tracking)
-    // Created on login.
     match /login_logs/{logId} {
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && validLoginLogCreate();
       allow read, list: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // 5. Admin Roles (Same as before)
     match /roles_admin/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if false;
     }
   }
 }
