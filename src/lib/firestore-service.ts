@@ -19,7 +19,8 @@ import {
     CICSDocument,
     UserProfile,
     UserStatus,
-    DownloadLog
+    DownloadLog,
+    UserRole
 } from '@/lib/types';
 
 // --- User Management ---
@@ -63,11 +64,35 @@ export async function createOrUpdateStudentProfile(
     }
 }
 
-export async function checkIsAdmin(firestore: Firestore, uid: string): Promise<boolean> {
-    // Check active admin role
+const PRIMARY_ADMIN_EMAIL = 'jcesperanza@neu.edu.ph';
+
+export async function checkIsAdmin(firestore: Firestore, uid: string, email?: string): Promise<boolean> {
+    // 1. Check if email is the primary admin email
+    if (email === PRIMARY_ADMIN_EMAIL) return true;
+
+    // 2. Check active admin role in roles_admin collection
     const docRef = doc(firestore, 'roles_admin', uid);
     const snap = await getDoc(docRef);
     return snap.exists() && snap.data().active === true;
+}
+
+/**
+ * Ensures the primary admin has an entry in roles_admin.
+ * This can be called during login.
+ */
+export async function ensurePrimaryAdmin(firestore: Firestore, uid: string, email: string): Promise<void> {
+    if (email !== PRIMARY_ADMIN_EMAIL) return;
+
+    const docRef = doc(firestore, 'roles_admin', uid);
+    const snap = await getDoc(docRef);
+    
+    if (!snap.exists()) {
+        await setDoc(docRef, {
+            email: PRIMARY_ADMIN_EMAIL,
+            active: true,
+            updatedAt: serverTimestamp()
+        });
+    }
 }
 
 export async function updateStudentStatus(firestore: Firestore, uid: string, status: UserStatus): Promise<void> {
@@ -88,6 +113,18 @@ export async function getAllStudents(firestore: Firestore): Promise<UserProfile[
     });
 }
 
+export async function getAllUsers(firestore: Firestore): Promise<UserProfile[]> {
+    const q = query(collection(firestore, 'users'), orderBy('email', 'asc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => {
+        const data = d.data();
+        return {
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate(),
+            lastLogin: (data.lastLogin as Timestamp)?.toDate()
+        } as UserProfile;
+    });
+}
 // --- Document Management ---
 
 export async function saveDocumentMetadata(
@@ -177,6 +214,11 @@ export async function logDownload(
             timestamp: serverTimestamp()
         });
     });
+}
+
+export async function updateUserRole(firestore: Firestore, uid: string, role: UserRole): Promise<void> {
+    const docRef = doc(firestore, 'users', uid);
+    await updateDoc(docRef, { role });
 }
 
 export async function getDownloadStats(firestore: Firestore): Promise<DownloadLog[]> {

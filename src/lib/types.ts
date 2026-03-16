@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'admin' | 'student';
 export type UserStatus = 'active' | 'blocked';
 

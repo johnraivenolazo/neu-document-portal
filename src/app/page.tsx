@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase/provider';
 import { signInWithGoogle } from '@/lib/auth-service';
-import { checkIsAdmin, createOrUpdateStudentProfile, getActiveUser } from '@/lib/firestore-service';
+import { checkIsAdmin, createOrUpdateStudentProfile, getActiveUser, ensurePrimaryAdmin } from '@/lib/firestore-service';
 import type { User } from 'firebase/auth';
 
 export default function LoginPage() {
@@ -21,13 +21,19 @@ export default function LoginPage() {
 
   const routeAfterLogin = useCallback(async (fbUser: User) => {
     try {
-      const admin = await checkIsAdmin(firestore!, fbUser.uid);
+      // 1. Ensure primary admin is registered
+      if (fbUser.email) {
+        await ensurePrimaryAdmin(firestore!, fbUser.uid, fbUser.email);
+      }
+
+      // 2. Check admin status
+      const admin = await checkIsAdmin(firestore!, fbUser.uid, fbUser.email || undefined);
       if (admin) {
         router.push('/admin');
         return;
       }
 
-      // Student Logic
+      // 3. Student Logic
       await createOrUpdateStudentProfile(firestore!, fbUser.uid, {
         email: fbUser.email!,
         displayName: fbUser.displayName || fbUser.email!,

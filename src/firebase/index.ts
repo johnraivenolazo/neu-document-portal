@@ -42,8 +42,6 @@ export function initializeFirebase() {
   return getSdks(getApp());
 }
 
-// import { getStorage } from 'firebase/storage';
-
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
