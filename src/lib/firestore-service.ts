@@ -67,31 +67,38 @@ export async function createOrUpdateStudentProfile(
 const PRIMARY_ADMIN_EMAIL = 'jcesperanza@neu.edu.ph';
 
 export async function checkIsAdmin(firestore: Firestore, uid: string, email?: string): Promise<boolean> {
-    // 1. Check if email is the primary admin email
-    if (email === PRIMARY_ADMIN_EMAIL) return true;
+    // 1. First priority: check the actual role in the users collection
+    const profile = await getActiveUser(firestore, uid);
+    if (profile) {
+        return profile.role === 'admin';
+    }
 
-    // 2. Check active admin role in roles_admin collection
-    const docRef = doc(firestore, 'roles_admin', uid);
-    const snap = await getDoc(docRef);
-    return snap.exists() && snap.data().active === true;
+    // 2. Fallback: If no profile yet, check if it's the primary admin
+    return email === PRIMARY_ADMIN_EMAIL;
 }
 
 /**
- * Ensures the primary admin has an entry in roles_admin.
- * This can be called during login.
+ * Ensures the primary admin has a valid user profile with admin role.
  */
 export async function ensurePrimaryAdmin(firestore: Firestore, uid: string, email: string): Promise<void> {
     if (email !== PRIMARY_ADMIN_EMAIL) return;
 
-    const docRef = doc(firestore, 'roles_admin', uid);
+    const docRef = doc(firestore, 'users', uid);
     const snap = await getDoc(docRef);
     
     if (!snap.exists()) {
         await setDoc(docRef, {
+            uid,
             email: PRIMARY_ADMIN_EMAIL,
-            active: true,
-            updatedAt: serverTimestamp()
+            role: 'admin',
+            status: 'active',
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp()
         });
+    } else if (snap.data().role !== 'admin') {
+        // If profile exists but role was switched to student, we don't force it back here
+        // to allow the 'Switch to Student View' to persist across sessions IF they want.
+        // But for the very first time or if they are just an admin, we ensure it.
     }
 }
 
