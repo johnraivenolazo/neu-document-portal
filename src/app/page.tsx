@@ -7,7 +7,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase/provider';
-import { signInWithGoogle } from '@/lib/auth-service';
+import { signInWithGoogle, signOutUser } from '@/lib/auth-service';
 import { checkIsAdmin, createOrUpdateStudentProfile, getActiveUser, ensurePrimaryAdmin } from '@/lib/firestore-service';
 import type { User } from 'firebase/auth';
 
@@ -21,6 +21,11 @@ export default function LoginPage() {
 
   const routeAfterLogin = useCallback(async (fbUser: User) => {
     try {
+      if (!fbUser.email?.toLowerCase().endsWith('@neu.edu.ph')) {
+        await signOutUser(auth!);
+        throw new Error('Only @neu.edu.ph institutional emails are allowed.');
+      }
+
       // 1. Ensure primary admin is registered
       if (fbUser.email) {
         await ensurePrimaryAdmin(firestore!, fbUser.uid, fbUser.email);
@@ -49,8 +54,13 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Post-login routing error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Access Denied',
+        description: (err as Error).message || 'Authentication failed. Please use your @neu.edu.ph account.',
+      });
     }
-  }, [firestore, router]);
+  }, [auth, firestore, router, toast]);
 
   // Auto-redirect if already signed in
   useEffect(() => {
@@ -63,7 +73,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const fbUser = await signInWithGoogle(auth!, hint);
-      await routeAfterLogin(fbUser);
+      if (fbUser) {
+        await routeAfterLogin(fbUser);
+      }
     } catch (err) {
       toast({
         variant: 'destructive',
