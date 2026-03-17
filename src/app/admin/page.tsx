@@ -110,7 +110,11 @@ export default function AdminDashboard() {
 
     setUploading(true);
     try {
-      const blob = await upload(file.name, file, {
+      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'pdf';
+      const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const uniqueFileName = `${baseName}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const blob = await upload(uniqueFileName, file, {
         access: 'public',
         handleUploadUrl: '/api/upload',
       });
