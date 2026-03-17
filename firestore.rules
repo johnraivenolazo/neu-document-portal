@@ -141,8 +141,10 @@ service cloud.firestore {
     function validStudentDownloadIncrement() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloadCount'])
         && request.resource.data.downloadCount is int
-        && resource.data.downloadCount is int
-        && request.resource.data.downloadCount == resource.data.downloadCount + 1;
+        && (
+          (resource.data.downloadCount is int && request.resource.data.downloadCount == resource.data.downloadCount + 1)
+          || (!(resource.data.downloadCount is int) && request.resource.data.downloadCount == 1)
+        );
     }
 
     function validDownloadCreate() {

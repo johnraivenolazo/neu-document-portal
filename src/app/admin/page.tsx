@@ -33,6 +33,7 @@ import { useRouter } from 'next/navigation';
 export default function AdminDashboard() {
   const { user, firestore } = useFirebase();
   const router = useRouter();
+  const canSwitchView = user?.email?.toLowerCase() === 'jcesperanza@neu.edu.ph';
   const [stats, setStats] = useState({
     users: 0,
     downloads: 0,
@@ -182,15 +183,17 @@ export default function AdminDashboard() {
               <p className="text-zinc-500 text-sm mt-1">Manage documents, students, and view analytics.</p>
             </div>
             <div className="flex gap-3">
-              <Button 
-                  variant="outline" 
-                  onClick={handleSwitchRole} 
-                  disabled={roleLoading}
-                  className="border-zinc-800 text-zinc-300 hover:bg-zinc-900 font-bold gap-2"
-              >
-                {roleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                Switch to Student View
-              </Button>
+              {canSwitchView && (
+                <Button 
+                    variant="outline" 
+                    onClick={handleSwitchRole} 
+                    disabled={roleLoading}
+                    className="border-zinc-800 text-zinc-300 hover:bg-zinc-900 font-bold gap-2"
+                >
+                  {roleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                  Switch to Student View
+                </Button>
+              )}
               <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-white text-black hover:bg-zinc-200 font-bold gap-2">

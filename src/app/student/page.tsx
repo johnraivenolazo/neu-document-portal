@@ -22,6 +22,7 @@ export default function StudentDashboard() {
     const [switchingStatus, setSwitchingStatus] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
+    const canSwitchBackToAdmin = user?.email?.toLowerCase() === 'jcesperanza@neu.edu.ph';
 
     useEffect(() => {
         async function load() {
@@ -123,7 +124,7 @@ export default function StudentDashboard() {
                         <h1 className="text-3xl font-bold text-white">Document Repository</h1>
                         <p className="text-zinc-400">Search and download official CICS documents.</p>
                     </div>
-                    {isAdmin && (
+                    {(isAdmin || canSwitchBackToAdmin) && (
                         <Button 
                             variant="outline" 
                             onClick={handleSwitchRole} 
