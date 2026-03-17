@@ -3,13 +3,13 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
-import { Inter } from 'next/font/google';
+import { Space_Grotesk } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'] });
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'CICS Document Portal',
-  description: 'Official document repository for CICS students and faculty.',
+  description: 'CICS digital document library for students and faculty.',
 };
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased min-h-screen bg-black text-foreground`}>
+      <body className={`${spaceGrotesk.className} antialiased min-h-screen bg-black text-foreground`}>
         <FirebaseClientProvider>
           {children}
         </FirebaseClientProvider>

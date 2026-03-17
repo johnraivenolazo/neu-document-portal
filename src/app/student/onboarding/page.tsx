@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
 const PROGRAMS = [
@@ -34,8 +35,8 @@ export default function OnboardingPage() {
         try {
             await createOrUpdateStudentProfile(firestore, user.uid, { program });
             toast({
-                title: 'Profile Completed',
-                description: 'Welcome to the CICS Document Portal!',
+                title: 'Profile Saved',
+                description: 'Your account is ready. Redirecting to the library...',
             });
             router.push('/student');
         } catch (err) {
@@ -52,11 +53,17 @@ export default function OnboardingPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-black p-4">
-            <Card className="w-full max-w-md bg-zinc-950 border-zinc-800">
+            <motion.div
+                className="w-full max-w-md"
+                initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+            <Card className="w-full bg-zinc-950 border-zinc-800">
                 <CardHeader>
-                    <CardTitle className="text-2xl text-white">Complete Your Profile</CardTitle>
+                    <CardTitle className="text-2xl text-white">Set Up Your Profile</CardTitle>
                     <CardDescription className="text-zinc-400">
-                        Please select your undergraduate program to continue.
+                        Select your undergraduate program to continue.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -83,11 +90,12 @@ export default function OnboardingPage() {
                             disabled={!program || loading}
                         >
                             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Continue to Portal
+                            Continue to Library
                         </Button>
                     </form>
                 </CardContent>
             </Card>
+            </motion.div>
         </div>
     );
 }

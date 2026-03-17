@@ -30,6 +30,31 @@
   * {
     @apply border-border;
   }
+
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(240 4% 26%) hsl(240 10% 3.9%);
+  }
+
+  *::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: hsl(240 10% 3.9%);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, hsl(240 4% 22%), hsl(240 4% 16%));
+    border: 2px solid hsl(240 10% 3.9%);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, hsl(240 5% 34%), hsl(240 4% 24%));
+  }
+
   body {
     @apply bg-background text-foreground font-body;
   }

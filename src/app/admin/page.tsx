@@ -9,23 +9,21 @@ import {
   searchDocuments,
   saveDocumentMetadata,
   getDownloadStats,
-  updateUserRole,
-  createOrUpdateStudentProfile,
-  getActiveUser,
-  ensurePrimaryAdmin
+  updateUserRole
 } from '@/lib/firestore-service';
 import { upload } from '@vercel/blob/client';
 import { CICSDocument, UserProfile, DownloadLog, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, Upload, Ban, CheckCircle, RefreshCcw, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { format, isAfter, subDays, startOfDay } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -147,7 +145,7 @@ export default function AdminDashboard() {
     try {
       const newRole: UserRole = 'student';
       await updateUserRole(firestore, user.uid, newRole, { preserveSwitchView: true });
-      toast({ title: 'Role Switched', description: 'Redirecting to student view...' });
+      toast({ title: 'Role Updated', description: 'Opening student view...' });
       router.push('/student');
     } catch (err) {
       console.error(err);
@@ -176,10 +174,15 @@ export default function AdminDashboard() {
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         <TooltipProvider delayDuration={0}>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <motion.div
+            className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          >
           <div>
               <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-              <p className="text-zinc-500 text-sm mt-1">Manage documents, students, and view analytics.</p>
+              <p className="text-zinc-500 text-sm mt-1">Manage documents, user access, and download activity.</p>
             </div>
             <div className="flex gap-3">
               <Button 
@@ -200,7 +203,7 @@ export default function AdminDashboard() {
                 <DialogContent className="bg-zinc-950 border-zinc-800 text-white">
                   <DialogHeader>
                     <DialogTitle>Upload Document</DialogTitle>
-                    <DialogDescription>Upload a new PDF file to the repository.</DialogDescription>
+                    <DialogDescription>Add a new PDF to the CICS document library.</DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleUpload} className="space-y-4 mt-4">
                     <div className="space-y-2">
@@ -251,9 +254,15 @@ export default function AdminDashboard() {
                 </DialogContent>
               </Dialog>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <motion.div
+            className="grid grid-cols-2 lg:grid-cols-5 gap-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.35, delay: 0.05 }}
+          >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
             <Card className="bg-zinc-900 border-zinc-800">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-zinc-400">Total Users</CardTitle>
@@ -262,15 +271,19 @@ export default function AdminDashboard() {
                 <div className="text-2xl font-bold text-white">{stats.users}</div>
               </CardContent>
             </Card>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.04 }}>
             <Card className="bg-zinc-900 border-zinc-800">
               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-sm font-medium text-zinc-400">Total DLs</CardTitle>
+                <CardTitle className="text-sm font-medium text-zinc-400">Total Downloads</CardTitle>
                 <TrendingUp className="h-4 w-4 text-zinc-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-white">{stats.downloads}</div>
               </CardContent>
             </Card>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.08 }}>
             <Card className="bg-zinc-900/40 border-zinc-800 border-dashed">
               <CardHeader className="pb-1">
                 <CardTitle className="text-xs font-medium text-zinc-500">Today</CardTitle>
@@ -279,6 +292,8 @@ export default function AdminDashboard() {
                 <div className="text-xl font-bold text-blue-400">{stats.today}</div>
               </CardContent>
             </Card>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.12 }}>
             <Card className="bg-zinc-900/40 border-zinc-800 border-dashed">
               <CardHeader className="pb-1">
                 <CardTitle className="text-xs font-medium text-zinc-500">This Week</CardTitle>
@@ -287,15 +302,18 @@ export default function AdminDashboard() {
                 <div className="text-xl font-bold text-emerald-400">{stats.week}</div>
               </CardContent>
             </Card>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.16 }}>
             <Card className="bg-zinc-900/40 border-zinc-800 border-dashed">
               <CardHeader className="pb-1">
                 <CardTitle className="text-xs font-medium text-zinc-500">This Month</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-xl font-bold text-purple-400">{stats.month}</div>
+                <div className="text-xl font-bold text-amber-400">{stats.month}</div>
               </CardContent>
             </Card>
-          </div>
+            </motion.div>
+          </motion.div>
 
           <Tabs defaultValue="documents" className="w-full">
             <TabsList className="bg-zinc-900 text-zinc-400 border border-zinc-800">
@@ -306,6 +324,7 @@ export default function AdminDashboard() {
 
             <TabsContent value="documents" className="mt-4 space-y-4">
               <Card className="bg-zinc-950 border-zinc-800">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-zinc-800 hover:bg-zinc-900/50">
@@ -316,8 +335,8 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {documents.map((doc) => (
-                      <TableRow key={doc.id} className="border-zinc-800 hover:bg-zinc-900/50">
+                    {documents.map((doc, index) => (
+                      <TableRow key={doc.id} className={`border-zinc-800 hover:bg-zinc-900/60 ${index % 2 === 0 ? 'bg-zinc-950' : 'bg-zinc-950/60'}`}>
                         <TableCell className="font-medium text-white">{doc.title}</TableCell>
                         <TableCell className="text-zinc-400">{doc.category}</TableCell>
                         <TableCell className="text-zinc-400">{doc.downloadCount}</TableCell>
@@ -326,13 +345,22 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {documents.length === 0 && (
+                      <TableRow className="border-zinc-800">
+                        <TableCell colSpan={4} className="text-center text-zinc-500 py-8">
+                          No documents available yet. Upload a PDF to get started.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             </TabsContent>
 
             <TabsContent value="users" className="mt-4">
               <Card className="bg-zinc-950 border-zinc-800">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-zinc-800 hover:bg-zinc-900/50">
@@ -344,8 +372,8 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allUsers.map((userProfile) => (
-                      <TableRow key={userProfile.uid} className="border-zinc-800 hover:bg-zinc-900/50">
+                    {allUsers.map((userProfile, index) => (
+                      <TableRow key={userProfile.uid} className={`border-zinc-800 hover:bg-zinc-900/60 ${index % 2 === 0 ? 'bg-zinc-950' : 'bg-zinc-950/60'}`}>
                         <TableCell className="font-medium text-white">{userProfile.displayName}</TableCell>
                         <TableCell className="text-zinc-400">{userProfile.email}</TableCell>
                         <TableCell className="text-zinc-400">
@@ -420,13 +448,22 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {allUsers.length === 0 && (
+                      <TableRow className="border-zinc-800">
+                        <TableCell colSpan={5} className="text-center text-zinc-500 py-8">
+                          No users found.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             </TabsContent>
 
             <TabsContent value="logs" className="mt-4">
               <Card className="bg-zinc-950 border-zinc-800">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-zinc-800 hover:bg-zinc-900/50">
@@ -437,8 +474,8 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {downloadLogs.map((log) => (
-                      <TableRow key={log.id} className="border-zinc-800 hover:bg-zinc-900/50">
+                    {downloadLogs.map((log, index) => (
+                      <TableRow key={log.id} className={`border-zinc-800 hover:bg-zinc-900/60 ${index % 2 === 0 ? 'bg-zinc-950' : 'bg-zinc-950/60'}`}>
                         <TableCell className="font-medium text-white">{log.documentTitle}</TableCell>
                         <TableCell className="text-zinc-400">{log.studentName}</TableCell>
                         <TableCell className="text-zinc-400">{log.studentProgram}</TableCell>
@@ -447,8 +484,16 @@ export default function AdminDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {downloadLogs.length === 0 && (
+                      <TableRow className="border-zinc-800">
+                        <TableCell colSpan={4} className="text-center text-zinc-500 py-8">
+                          No download activity yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             </TabsContent>
           </Tabs>

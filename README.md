@@ -1,24 +1,28 @@
 # CICS Document Portal
 
-A central repository for CICS students and faculty to manage, share, and download official college documents.
+A streamlined document hub for CICS students and faculty to access official files in one place.
+
+## Live Website
+
+https://neu-document-portal.vercel.app/
 
 ![Student Dashboard](public/student_dashboard.png)
 
 ## Overview
 
-This portal serves as a digital distribution channel for college forms, memos, and curriculum guides. It ensures that students have access to the correct, up-to-date files without needing to visit the office physically.
+This portal is the official digital channel for forms, memos, and curriculum references. It helps students quickly find the latest approved documents without going to the office.
 
 ## Features
 
 ### For Students
-*   **Single Sign-On (SSO)**: Login using official `@neu.edu.ph` email.
-*   **Document Search**: Filter and find documents by category (Memo, Form, Curriculum).
-*   **Profile Setup**: Set program (BSCS, BSIT) on first login to see relevant content.
+*   **Single Sign-On (SSO)**: Sign in using your official `@neu.edu.ph` account.
+*   **Smart Search**: Find documents by title or category in seconds.
+*   **Personalized Access**: Set your program on first login to view relevant content.
 
 ### For Admins
-*   **File Management**: Upload PDF documents and assign categories.
-*   **Download Tracking**: View stats on which documents are downloaded most.
-*   **Audit Logs**: Track who accessed which document and when.
+*   **Document Management**: Upload PDFs and organize them by category.
+*   **Download Insights**: See which files are accessed most often.
+*   **Audit Trail**: Review who downloaded what and when.
 
 ## Screenshots
 

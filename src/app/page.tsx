@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase/provider';
 import { signInWithGoogle, signOutUser } from '@/lib/auth-service';
@@ -100,14 +101,19 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-black">
-      <div className="hidden lg:flex flex-col justify-center p-16 bg-zinc-950 text-white relative overflow-hidden border-r border-zinc-900">
+      <motion.div
+        className="hidden lg:flex flex-col justify-center p-16 bg-zinc-950 text-white relative overflow-hidden border-r border-zinc-900"
+        initial={{ opacity: 0, x: -24 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+      >
         <div className="absolute top-0 right-0 w-96 h-96 bg-zinc-100/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-[120px]" />
 
         <div className="relative z-10 space-y-12">
           <div className="space-y-4">
             <h1 className="text-4xl font-bold tracking-tighter text-white">NEU Document Portal</h1>
             <p className="text-xl text-zinc-400 max-w-sm leading-relaxed font-light">
-              Secure centralized repository for CICS academic resources.
+              Your official hub for CICS forms, memos, and curriculum files.
             </p>
           </div>
 
@@ -117,20 +123,26 @@ export default function LoginPage() {
                 <ShieldCheck className="h-6 w-6 text-zinc-300" />
               </div>
               <div>
-                <span className="font-semibold text-zinc-200 block">Verified Access</span>
-                <p className="text-zinc-500 text-sm">Restricted to @neu.edu.ph domains.</p>
+                <span className="font-semibold text-zinc-200 block">Campus-Only Access</span>
+                <p className="text-zinc-500 text-sm">Use your official @neu.edu.ph account to continue.</p>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">
-        <Card className="w-full max-w-md border-zinc-900 bg-zinc-950/40 backdrop-blur-xl shadow-2xl">
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="w-full max-w-md"
+        >
+          <Card className="w-full border-zinc-900 bg-zinc-950/40 backdrop-blur-xl shadow-2xl">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-3xl font-bold tracking-tight text-zinc-100">Welcome</CardTitle>
             <CardDescription className="text-zinc-500">
-              Sign in to access document repository.
+              Sign in to access the document portal.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-4">
@@ -154,11 +166,12 @@ export default function LoginPage() {
 
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
               <p className="text-zinc-400 text-xs text-center leading-relaxed">
-                Only <strong>@neu.edu.ph</strong> accounts are authorized.
+                Access is limited to <strong>@neu.edu.ph</strong> accounts.
               </p>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );

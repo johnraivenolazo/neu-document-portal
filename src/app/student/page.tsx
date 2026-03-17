@@ -8,7 +8,9 @@ import { CICSDocument, UserProfile } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Search, Download, FileText, Loader2, ShieldCheck, RefreshCcw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Search, Download, FileText, Loader2, RefreshCcw, Filter } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -18,6 +20,7 @@ export default function StudentDashboard() {
     const [query, setQuery] = useState('');
     const [documents, setDocuments] = useState<CICSDocument[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState('All');
     const [isAdmin, setIsAdmin] = useState(false);
     const [canSwitchView, setCanSwitchView] = useState(false);
     const [switchingStatus, setSwitchingStatus] = useState(false);
@@ -99,7 +102,7 @@ export default function StudentDashboard() {
         setSwitchingStatus(true);
         try {
             await updateUserRole(firestore, user.uid, 'admin');
-            toast({ title: 'Role Switched', description: 'Returning to Admin Dashboard...' });
+            toast({ title: 'Role Updated', description: 'Opening the admin dashboard...' });
             router.push('/admin');
         } catch (err) {
             console.error(err);
@@ -111,6 +114,11 @@ export default function StudentDashboard() {
 
     if (!user) return null; // Or loading spinner
 
+    const categories = ['All', ...Array.from(new Set(documents.map((doc) => doc.category).filter(Boolean)))];
+    const filteredDocuments = selectedCategory === 'All'
+        ? documents
+        : documents.filter((doc) => doc.category === selectedCategory);
+
     return (
         <div className="min-h-screen bg-black">
             <Navbar user={{
@@ -121,10 +129,15 @@ export default function StudentDashboard() {
             }} />
 
             <main className="container mx-auto px-4 py-8 space-y-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <motion.div
+                    className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                >
                     <div className="space-y-1">
-                        <h1 className="text-3xl font-bold text-white">Document Repository</h1>
-                        <p className="text-zinc-400">Search and download official CICS documents.</p>
+                        <h1 className="text-3xl font-bold text-white">CICS Document Library</h1>
+                        <p className="text-zinc-400">Find and download official CICS files quickly.</p>
                     </div>
                     {(isAdmin || canSwitchView) && (
                         <Button 
@@ -134,29 +147,91 @@ export default function StudentDashboard() {
                             className="border-zinc-800 text-zinc-300 hover:bg-zinc-900 font-bold gap-2"
                         >
                             {switchingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                            Switch back to Admin
+                            Return to Admin
                         </Button>
                     )}
-                </div>
+                </motion.div>
 
-                <div className="relative max-w-xl">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                    <Input
-                        placeholder="Search documents by title or category..."
-                        className="pl-10 bg-zinc-900 border-zinc-800 text-white h-12"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                    />
-                </div>
+                <motion.section
+                    className="sticky top-16 z-30 -mx-4 px-4 py-4 bg-black/85 backdrop-blur-md border-y border-zinc-900 space-y-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.05, ease: 'easeOut' }}
+                >
+                    <div className="relative max-w-xl">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <Input
+                            placeholder="Search documents by title or category..."
+                            className="pl-10 bg-zinc-900 border-zinc-800 text-white h-12"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center text-xs uppercase tracking-wide text-zinc-500 gap-1">
+                            <Filter className="h-3.5 w-3.5" />
+                            Category
+                        </span>
+                        {categories.map((category) => (
+                            <Button
+                                key={category}
+                                size="sm"
+                                variant={selectedCategory === category ? 'default' : 'outline'}
+                                onClick={() => setSelectedCategory(category)}
+                                className={selectedCategory === category
+                                    ? 'bg-zinc-100 text-black hover:bg-white'
+                                    : 'border-zinc-800 text-zinc-300 hover:bg-zinc-900'}
+                            >
+                                {category}
+                            </Button>
+                        ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+                        <Badge variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-300">
+                            {filteredDocuments.length} result{filteredDocuments.length === 1 ? '' : 's'}
+                        </Badge>
+                        {query.trim() && (
+                            <Badge variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-300">
+                                Query: {query}
+                            </Badge>
+                        )}
+                    </div>
+                </motion.section>
 
                 {loading ? (
-                    <div className="flex justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <Card key={i} className="bg-zinc-950 border-zinc-900">
+                                <CardHeader className="space-y-3">
+                                    <div className="h-4 w-24 bg-zinc-900 rounded animate-pulse" />
+                                    <div className="h-6 w-2/3 bg-zinc-900 rounded animate-pulse" />
+                                    <div className="h-4 w-full bg-zinc-900 rounded animate-pulse" />
+                                </CardHeader>
+                                <CardFooter>
+                                    <div className="h-10 w-full bg-zinc-900 rounded animate-pulse" />
+                                </CardFooter>
+                            </Card>
+                        ))}
+                        <div className="col-span-full flex items-center justify-center gap-2 text-zinc-500">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading documents...
+                        </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {documents.map((doc) => (
-                            <Card key={doc.id} className="bg-zinc-950 border-zinc-900 hover:border-zinc-700 transition-colors">
+                    <motion.div
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.25 }}
+                    >
+                        {filteredDocuments.map((doc) => (
+                            <motion.div
+                                key={doc.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25 }}
+                            >
+                            <Card className="bg-zinc-950 border-zinc-900 hover:border-zinc-700 transition-colors">
                                 <CardHeader className="pb-3">
                                     <div className="flex justify-between items-start gap-4">
                                         <div className="p-2 bg-zinc-900 rounded-lg">
@@ -183,14 +258,40 @@ export default function StudentDashboard() {
                                     </Button>
                                 </CardFooter>
                             </Card>
+                            </motion.div>
                         ))}
 
-                        {documents.length === 0 && !loading && (
-                            <div className="col-span-full text-center py-12 text-zinc-500">
-                                No documents found matching &quot;{query}&quot;.
+                        {filteredDocuments.length === 0 && !loading && (
+                            <div className="col-span-full py-12">
+                                <Card className="bg-zinc-950 border-zinc-900 max-w-2xl mx-auto">
+                                    <CardHeader className="text-center space-y-3">
+                                        <div className="mx-auto p-3 rounded-xl bg-zinc-900 border border-zinc-800 w-fit">
+                                            <Search className="h-5 w-5 text-zinc-400" />
+                                        </div>
+                                        <CardTitle className="text-zinc-100">No matching documents</CardTitle>
+                                        <CardDescription className="text-zinc-500">
+                                            Try another keyword, or clear filters to view all available documents.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardFooter className="justify-center gap-3">
+                                        <Button
+                                            variant="outline"
+                                            className="border-zinc-800 text-zinc-300 hover:bg-zinc-900"
+                                            onClick={() => setSelectedCategory('All')}
+                                        >
+                                            Show all categories
+                                        </Button>
+                                        <Button
+                                            className="bg-zinc-100 text-black hover:bg-white"
+                                            onClick={() => setQuery('')}
+                                        >
+                                            Clear search
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
                             </div>
                         )}
-                    </div>
+                    </motion.div>
                 )}
             </main>
         </div>
