@@ -87,14 +87,14 @@ export async function checkIsAdmin(firestore: Firestore, uid: string, email?: st
     }
 
     // 2. Fallback: If no profile yet, check if it's the primary admin
-    return email === PRIMARY_ADMIN_EMAIL;
+    return email?.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase();
 }
 
 /**
  * Ensures the primary admin has a valid user profile with admin role.
  */
 export async function ensurePrimaryAdmin(firestore: Firestore, uid: string, email: string): Promise<void> {
-    if (email !== PRIMARY_ADMIN_EMAIL) return;
+    if (email.toLowerCase() !== PRIMARY_ADMIN_EMAIL.toLowerCase()) return;
 
     const docRef = doc(firestore, 'users', uid);
     const snap = await getDoc(docRef);
