@@ -105,6 +105,7 @@ export async function ensurePrimaryAdmin(firestore: Firestore, uid: string, emai
             email: PRIMARY_ADMIN_EMAIL,
             role: 'admin',
             status: 'active',
+            canSwitchView: true,
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp()
         });
@@ -236,9 +237,22 @@ export async function logDownload(
     });
 }
 
-export async function updateUserRole(firestore: Firestore, uid: string, role: UserRole): Promise<void> {
+export async function updateUserRole(
+    firestore: Firestore,
+    uid: string,
+    role: UserRole,
+    options?: { preserveSwitchView?: boolean }
+): Promise<void> {
     const docRef = doc(firestore, 'users', uid);
-    await updateDoc(docRef, { role });
+    const updates: Record<string, unknown> = { role };
+
+    if (role === 'admin') {
+        updates.canSwitchView = true;
+    } else {
+        updates.canSwitchView = options?.preserveSwitchView === true;
+    }
+
+    await updateDoc(docRef, updates);
 }
 
 export async function getDownloadStats(firestore: Firestore): Promise<DownloadLog[]> {

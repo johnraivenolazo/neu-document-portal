@@ -9,6 +9,7 @@ export interface UserProfile {
   photoURL?: string;
   role: UserRole;
   status: UserStatus;
+  canSwitchView?: boolean;
   program?: string; // e.g., 'BSCS', 'BSIT', 'BLIS'
   createdAt?: Date;
   lastLogin?: Date;

@@ -19,21 +19,23 @@ export default function StudentDashboard() {
     const [documents, setDocuments] = useState<CICSDocument[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [canSwitchView, setCanSwitchView] = useState(false);
     const [switchingStatus, setSwitchingStatus] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
-    const canSwitchBackToAdmin = user?.email?.toLowerCase() === 'jcesperanza@neu.edu.ph';
 
     useEffect(() => {
         async function load() {
             if (!firestore || !user) return;
             try {
-                const [results, adminCheck] = await Promise.all([
+                const [results, adminCheck, profile] = await Promise.all([
                    searchDocuments(firestore, query),
-                   checkIsAdmin(firestore, user.uid, user.email || undefined)
+                   checkIsAdmin(firestore, user.uid, user.email || undefined),
+                   getActiveUser(firestore, user.uid)
                 ]);
                 setDocuments(results);
                 setIsAdmin(adminCheck);
+                setCanSwitchView(Boolean(profile?.canSwitchView));
             } catch (err) {
                 console.error('Failed to load data:', err);
             } finally {
@@ -124,7 +126,7 @@ export default function StudentDashboard() {
                         <h1 className="text-3xl font-bold text-white">Document Repository</h1>
                         <p className="text-zinc-400">Search and download official CICS documents.</p>
                     </div>
-                    {(isAdmin || canSwitchBackToAdmin) && (
+                    {(isAdmin || canSwitchView) && (
                         <Button 
                             variant="outline" 
                             onClick={handleSwitchRole} 
